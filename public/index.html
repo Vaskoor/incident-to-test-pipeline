@@ -1,0 +1,70 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Incident-to-Test Pipeline — Closed-Loop Regression</title>
+<style>
+:root{--bg:#0b0f14;--p:#131a23;--p2:#1a232e;--p3:#222d3a;--bd:#24303d;--fg:#e6edf3;--dim:#8b98a5;--d2:#64707d;--g:#3fb950;--r:#f85149;--y:#d29922;--b:#58a6ff;--pu:#bc8cff;--t:#2dd4bf;--gr:linear-gradient(90deg,#f85149,#58a6ff)}
+*{box-sizing:border-box;margin:0;padding:0}body{font:14px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--fg)}
+::-webkit-scrollbar{width:8px}::-webkit-scrollbar-thumb{background:var(--bd);border-radius:4px}
+header{position:sticky;top:0;z-index:10;padding:14px 28px;border-bottom:1px solid var(--bd);background:linear-gradient(90deg,rgba(248,81,73,.08),rgba(88,166,255,.08)),var(--bg);display:flex;align-items:center;gap:12px}
+.logo{width:32px;height:32px;border-radius:8px;background:var(--gr);display:flex;align-items:center;justify-content:center;font-size:16px}
+header h1{font-size:16px;font-weight:700}.tag{color:var(--dim);font-size:11px;border:1px solid var(--bd);padding:2px 8px;border-radius:999px;text-transform:uppercase}
+.spacer{flex:1}.badge{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;padding:5px 11px;border-radius:999px;border:1px solid var(--bd);background:var(--p2)}.badge .dot{width:8px;height:8px;border-radius:50%;background:var(--g);animation:p 1.6s infinite}@keyframes p{0%,100%{opacity:1}50%{opacity:.4}}
+main{max-width:1300px;margin:0 auto;padding:24px 28px 80px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:20px}
+.card{background:var(--p);border:1px solid var(--bd);border-radius:10px;padding:16px;position:relative;overflow:hidden}.card::before{content:"";position:absolute;left:0;top:0;width:3px;height:100%;background:var(--b)}.card.g::before{background:var(--g)}.card.r::before{background:var(--r)}.card.y::before{background:var(--y)}.card.pu::before{background:var(--pu)}.card.t::before{background:var(--t)}
+.card .l{font-size:10px;text-transform:uppercase;color:var(--dim)}.card .v{font-size:24px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:4px}.card .v.g{color:var(--g)}.v.r{color:var(--r)}.v.y{color:var(--y)}.v.pu{color:var(--pu)}.v.t{color:var(--t)}
+.panel{background:var(--p);border:1px solid var(--bd);border-radius:10px;overflow:hidden;margin-bottom:20px}.panel h2{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em;padding:14px 18px;border-bottom:1px solid var(--bd)}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:9px 14px;text-align:left;border-bottom:1px solid var(--bd)}th{color:var(--dim);font-size:10px;text-transform:uppercase}
+.pill{padding:2px 8px;border-radius:999px;font-size:10px;font-weight:700}.pill.P1{background:rgba(248,81,73,.2);color:var(--r)}.pill.P2{background:rgba(210,153,34,.2);color:var(--y)}.pill.P3{background:rgba(63,185,80,.2);color:var(--g)}
+.pill.regression-added{background:rgba(88,166,255,.15);color:var(--b)}.pill.fix-verified{background:rgba(63,185,80,.15);color:var(--g)}
+.code{font-family:monospace;font-size:11px;color:var(--t)}
+.flow{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:14px 18px;font-size:12px;color:var(--dim)}.flow .step{padding:6px 10px;border:1px solid var(--bd);border-radius:8px;background:var(--p2)}.flow .step b{color:var(--fg)}.flow .arr{color:var(--d2)}
+.arch{font-size:12px;color:var(--dim);line-height:1.9;padding:14px 18px}.arch b{color:var(--fg)}
+footer{text-align:center;padding:28px;color:var(--d2);font-size:12px;border-top:1px solid var(--bd);margin-top:20px}
+</style></head><body>
+<header><div class="logo">🔄</div><h1>Incident-to-Test Pipeline</h1><span class="tag">Closed-Loop Regression</span><div class="spacer"></div><span class="badge"><span class="dot"></span><span id="st">live</span></span></header>
+<main>
+<div class="cards" id="cards"></div>
+<div class="panel"><h2>Closed Loop — Incident → Regression Test → CI Gate</h2><div class="flow">
+<span class="step">📡 <b>PagerDuty</b> webhook</span><span class="arr">→</span>
+<span class="step">🔍 pull <b>OTel traces</b></span><span class="arr">→</span>
+<span class="step">📜 pull <b>Loki logs</b></span><span class="arr">→</span>
+<span class="step">📊 pull <b>Prom metrics</b></span><span class="arr">→</span>
+<span class="step">🤖 <b>LLM</b> generates failing test</span><span class="arr">→</span>
+<span class="step">✅ test added to <b>CI</b></span><span class="arr">→</span>
+<span class="step">🧪 fix <b>verified</b></span>
+</div></div>
+<div class="panel"><h2>Incidents with Regression Tests</h2><div style="overflow-x:auto"><table>
+<thead><tr><th>ID</th><th>Sev</th><th>Title</th><th>Source</th><th>Captured</th><th>Regression Test</th><th>Status</th></tr></thead>
+<tbody id="inc"></tbody></table></div></div>
+<div class="panel"><h2>Architecture</h2><div class="arch">
+<div>🔔 <b>Trigger</b> — PagerDuty / Opsgenie / Sentry / Datadog webhook fires the pipeline</div>
+<div>📦 <b>Capture</b> — OTel traces + Loki logs + Prometheus metrics + git diff at the incident time</div>
+<div>🤖 <b>Generate</b> — LLM produces a failing test that reproduces the incident from the captured evidence</div>
+<div>✅ <b>Gate</b> — test added to the regression suite + gated in GitHub Actions</div>
+<div>🔁 <b>Verify</b> — once the fix ships, the test flips green; recurrence tracked</div>
+<div style="margin-top:8px;color:var(--d2)">Stack: OpenTelemetry · Loki · Prometheus · LLM · GitHub Actions · PagerDuty</div>
+</div></div>
+</main>
+<footer>Incident-to-Test Pipeline · closes the loop between production and QA · startup-worthy · MIT</footer>
+<script>
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]))}
+async function load(){try{
+const r=await fetch('/api/status');const d=await r.json();
+document.getElementById('st').textContent=`${d.totalIncidents} incidents · recurrence ${d.recurrenceRate}%`;
+document.getElementById('cards').innerHTML=[
+ c('Incidents',d.totalIncidents,'r'),
+ c('Regression Tests',d.regressionTests,'g'),
+ c('Recurrence Rate',d.recurrenceRate+'%','g'),
+ c('Avg Loop',Math.round(d.closedLoopMs/1000)+'s','b'),
+].join('');
+document.getElementById('inc').innerHTML=d.incidents.map(i=>`<tr>
+<td><code>${esc(i.id)}</code></td><td><span class="pill ${i.sev}">${i.sev}</span></td>
+<td>${esc(i.title)}</td><td class="code">${esc(i.source)}</td>
+<td style="color:var(--dim);font-size:11px">${esc(i.traces)} · ${esc(i.logs)} · ${esc(i.metrics)}</td>
+<td class="code">${esc(i.test)}</td>
+<td><span class="pill ${i.status}">${esc(i.status)}</span></td></tr>`).join('');
+}catch(e){document.getElementById('st').textContent='offline'}}
+function c(l,v,col){return `<div class="card ${col}"><div class="l">${l}</div><div class="v ${col}">${v}</div></div>`}
+load();setInterval(load,5000);
+</script>
+</body></html>
